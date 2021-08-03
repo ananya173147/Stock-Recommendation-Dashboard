@@ -1,0 +1,56 @@
+*{
+    margin: 0;
+    margin-left: 0;
+    padding:0;
+    font-family: 'Montserrat', sans-serif;
+   }
+   
+  
+   
+   .container{
+       position: relative;
+       display: flex;
+   }
+
+   .content{
+    margin-left: 15%;
+    margin-top: 0%;
+    margin-right: -20%;
+    margin-bottom: 2%;
+}
+   
+   #main-content{
+    margin-top: -1%;
+}
+
+   .Navigation{
+       position:fixed;
+       padding:50px;
+       width:20%;
+       height:100vh;
+       display:flex;
+       flex-direction: column;
+       background-color: black;
+       overflow: hidden;
+       cursor: pointer;
+       margin-left: -20%;
+       margin-block-start: 0%;
+   }
+   
+   .graphs{
+    margin-top: 800px;
+    padding:15px;
+    }
+
+
+   .start{
+       margin-bottom: 5%;
+       color: aliceblue;
+   }
+
+   .dash-dropdown{
+    padding-top:30px;
+    padding-bottom:120px;
+    width: 100%;
+    margin-left: 0%;
+}
