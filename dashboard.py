@@ -1,3 +1,4 @@
+from os import name
 import dash
 import dash_core_components as dcc   
 import dash_html_components as html 
@@ -9,6 +10,8 @@ import pandas as pd
 pd.options.mode.chained_assignment = None 
 from dash.exceptions import PreventUpdate
 import numpy as np
+from datetime import date, timedelta
+from sklearn import preprocessing
 
 ## Functions for calculating SMA, EMA, MACD, RSI
 def SMA(data, period = 100, column = 'Adj Close'):
@@ -98,7 +101,8 @@ def get_stock_price_fig(df,v2,v3):
         row = 4, col= 1,)
         fig.layout.xaxis.showgrid=False
     elif v3=="Cumulative Returns":
-        rets = df['Adj Close'] / df['Adj Close'].shift(1) - 1
+        rets = df['Adj Close'] / df
+        ['Adj Close'].shift(1) - 1
         cum_rets = (rets + 1).cumprod()
         fig.add_trace(go.Scatter(x = df['Date'], y=cum_rets, mode="lines", name = 'Cumulative Returns'),
         row = 4, col=1)
@@ -110,6 +114,58 @@ def get_stock_price_fig(df,v2,v3):
     fig.layout.xaxis.showgrid=False
     return fig
 
+
+## Function for applying Geometric Brownian Model 
+def GBM(df):
+
+    end_date = date.today().isoformat()   
+    #start_date = (date.today()-timedelta(days=30)).isoformat()
+    pred_end_date = (date.today()+timedelta(days=30)).isoformat()
+    
+    df = df[['Date','Adj Close']].reset_index(drop=True)
+
+    returns = (df.loc[1:,'Adj Close'] - \
+        df.shift(1).loc[1:,'Adj Close'])/\
+        df.shift(1).loc[1:,'Adj Close']
+
+    # Assigning Parameters
+    S = df.loc[df.shape[0]-1,'Adj Close']
+    dt = 1
+    trading_days = pd.date_range(start=pd.to_datetime(end_date,format='%Y-%m-%d') + 
+                    pd.Timedelta('1 days'),
+                    end=pd.to_datetime(pred_end_date,format='%Y-%m-%d')).to_series().map(lambda k:
+                    1 if k.isoweekday() in range(1,6) else 0).sum()
+    T = trading_days
+    N = T/dt
+    t = np.arange(1,int(N)+1)
+    mu = np.mean(returns)
+    sd = np.std(returns)
+    pred_no = 4
+    b = {str(k): np.random.normal(0,1,int(N)) for k in range(1, pred_no+1)}
+    W = {str(k): b[str(k)].cumsum() for k in range(1, pred_no+1)}
+
+    # Drift & Diffusion 
+    drift = (mu - 0.5 * sd**2) * t
+    diffusion = {str(k): sd*W[str(k)] for k in range(1, pred_no+1)}
+    #print(drift, diffusion)
+
+    # Prediction Values
+    Pred = np.array([S*np.exp(drift+diffusion[str(k)]) for k in range(1, pred_no+1)]) 
+    Pred = np.hstack((np.array([[S] for k in range(pred_no)]), Pred))
+    #print(Pred)
+
+    fig = go.Figure()
+    for i in range(pred_no):
+        fig.add_trace(go.Scatter(mode="lines",x=pd.date_range(start=df['Date'].max(),
+                        end = pred_end_date, freq='D').map(lambda k:
+                        k if k.isoweekday() in range(1,6) else np.nan).dropna(),
+                        y=Pred[i,:],name='GBM '+str(i),
+                        text=["Daily Volatility: "+str(sd)],
+                        textposition="bottom center"))
+        fig.layout.xaxis.showgrid=False   
+        fig.update_layout(margin=dict(b=0,t=0,l=0,r=0),plot_bgcolor='#F3F6FA')
+
+    return fig
 
 app = dash.Dash(external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'])
 
@@ -177,6 +233,7 @@ app.layout = html.Div([
         html.Div([
             html.Div([], id="c_graph"), 
             html.Div([], id="graphs"),
+            html.Br(),
             html.H4('Risk Ratios (Over the last <5 years)',style={'text-align':'center'}),
 
             html.Div([
@@ -195,6 +252,9 @@ app.layout = html.Div([
                 html.H5("Alpha",style={'width': '50%', 'display': 'inline-block'}),
                 html.Div(id="a_val",style={'width': '24%', 'display': 'inline-block'}),
             ],style={'width': '39%', 'display': 'inline-block'}),
+            html.Br(),
+            html.H4('Prediction of prices over the next month',style={'text-align':'center'}),
+            html.Div([], id="gbm_graph"), 
         ], id="main-content")           
 
     ],className="content")
@@ -210,6 +270,7 @@ app.layout = html.Div([
             [Output("b_val", "children")],
             [Output("sr_val", "children")],
             [Output("a_val", "children")],
+            [Output("gbm_graph", "children")],
             [Input("dropdown_tickers", "value")],
             [Input("indicators", "value")],
             [Input("Returns", "value")],
@@ -220,6 +281,8 @@ def stock_prices(v, v2, v3):
         raise PreventUpdate
 
     df = yf.download(v)
+    # df.to_csv("data.csv")
+    # df = pd.read_csv("data.csv")
     df.reset_index(inplace=True)
     df = df.tail(1800)
 
@@ -228,6 +291,8 @@ def stock_prices(v, v2, v3):
 
     # Beta & Alpha Ratio
     beta_r = yf.download("^NSEI")
+    # #beta_r.to_csv("b.csv")
+    # beta_r = pd.read_csv("b.csv")
     beta_r.reset_index(inplace=True)
     beta_r = beta_r[["Date", 'Adj Close']]
     beta_r.columns = ['Date', "NIFTY"]
@@ -275,12 +340,17 @@ def stock_prices(v, v2, v3):
     elif current < yesterday:
             fig1.update_traces(delta_decreasing_color='red')
 
+    # GBM Model
+    df = df.tail(30)
+    fig2 = GBM(df)
+
     return [dcc.Graph(figure=fig1,config={'displayModeBar': False}),
             dcc.Graph(figure=fig,config={'displayModeBar': False}),
             SD,
             Beta_Ratio,
             Sharpe_Ratio,
-            Alpha_Ratio]
+            Alpha_Ratio,
+            dcc.Graph(figure=fig2,config={'displayModeBar': False}),]
 
 
 app.run_server(debug=True)
