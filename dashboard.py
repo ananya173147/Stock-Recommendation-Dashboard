@@ -11,7 +11,6 @@ pd.options.mode.chained_assignment = None
 from dash.exceptions import PreventUpdate
 import numpy as np
 from datetime import date, timedelta
-from sklearn import preprocessing
 
 ## Functions for calculating SMA, EMA, MACD, RSI
 def SMA(data, period = 100, column = 'Adj Close'):
@@ -68,48 +67,48 @@ def get_stock_price_fig(df,v2,v3):
 
     # Indicators
     if v2=='RSI':
-        fig.add_trace(go.Scatter(x = df['Date'], y=df['RSI'], mode="lines", name = 'RSI'),
+        fig.add_trace(go.Scatter(x = df['Date'], y=df['RSI'], mode="lines", name = 'RSI', marker=dict(color='rgb(31, 119, 180)'), showlegend = False),
         row = 3, col= 1)
         fig.layout.xaxis.showgrid=False
     elif v2=='SMA':
-        fig.add_trace(go.Scatter(x = df['Date'], y=df['SMA'], mode="lines", name = 'SMA'),
+        fig.add_trace(go.Scatter(x = df['Date'], y=df['SMA'], mode="lines", name = 'SMA', showlegend = False, marker=dict(color='rgb(31, 119, 180)')),
         row = 3, col= 1)
         fig.layout.xaxis.showgrid=False
     elif v2=='EMA':
-        fig.add_trace(go.Scatter(x = df['Date'], y=df['EMA'], mode="lines", name = 'EMA'),
+        fig.add_trace(go.Scatter(x = df['Date'], y=df['EMA'], mode="lines", name = 'EMA', showlegend = False, marker=dict(color='rgb(31, 119, 180)')),
         row = 3, col= 1)
         fig.layout.xaxis.showgrid=False
     elif v2=='MACD':
-        fig.add_trace(go.Scatter(x = df['Date'], y=df['MACD'], mode="lines",name = 'MACD'),
+        fig.add_trace(go.Scatter(x = df['Date'], y=df['MACD'], mode="lines",name = 'MACD', showlegend = False, marker=dict(color='rgb(31, 119, 180)')),
         row = 3, col= 1)
-        fig.add_trace(go.Scatter(x = df['Date'], y=df['Signal_Line'], mode="lines",name='Signal_Line'),
+        fig.add_trace(go.Scatter(x = df['Date'], y=df['Signal_Line'], mode="lines",name='Signal_Line', showlegend = False, marker=dict(color='#ff3333')),
         row = 3, col= 1)
         fig.layout.xaxis.showgrid=False
     elif v2=='BB':
-        fig.add_trace(go.Scatter(x = df['Date'], y=df['Adj Close'], mode="lines",line=dict(color='rgb(31, 119, 180)'),name = 'Close'),
+        fig.add_trace(go.Scatter(x = df['Date'], y=df['Adj Close'], mode="lines",line=dict(color='rgb(31, 119, 180)'),name = 'Close',showlegend = False),
         row = 3, col= 1) 
         fig.add_trace(go.Scatter(x = df['Date'], y=df['BOLU'],mode="lines", line=dict(width=0.5), marker=dict(color="#89BCFD"),showlegend=False,name = 'Upper Band'),
         row = 3, col= 1)
         fig.add_trace(go.Scatter(x = df['Date'], y=df['BOLD'], mode="lines",line=dict(width=0.5),marker=dict(color="#89BCFD"),showlegend=False,fillcolor='rgba(228, 240, 255, 0.5)',fill='tonexty',name = 'Lower Band'),
         row = 3, col= 1)
-        fig.layout.xaxis.showgrid=False         
+        fig.layout.xaxis.showgrid=False
+                 
 
     # Returns
     if v3=="Daily Returns":
         rets = df['Adj Close'] / df['Adj Close'].shift(1) - 1
-        fig.add_trace(go.Scatter(x = df['Date'], y=rets, mode="lines", name = 'Daily Return'),
+        fig.add_trace(go.Scatter(x = df['Date'], y=rets, mode="lines", showlegend = False, name = 'Daily Return', line=dict(color='#FF4136')),
         row = 4, col= 1,)
         fig.layout.xaxis.showgrid=False
     elif v3=="Cumulative Returns":
-        rets = df['Adj Close'] / df
-        ['Adj Close'].shift(1) - 1
+        rets = df['Adj Close'] / df['Adj Close'].shift(1) - 1
         cum_rets = (rets + 1).cumprod()
-        fig.add_trace(go.Scatter(x = df['Date'], y=cum_rets, mode="lines", name = 'Cumulative Returns'),
+        fig.add_trace(go.Scatter(x = df['Date'], y=cum_rets, mode="lines", showlegend = False, name = 'Cumulative Returns', line=dict(color='#FF4136')),
         row = 4, col=1)
         fig.layout.xaxis.showgrid=False
 
     fig.update(layout_xaxis_rangeslider_visible=False)
-    fig.update_layout(margin=dict(b=0,t=0,l=0,r=0),plot_bgcolor='#F3F6FA',width=1000, height=600, 
+    fig.update_layout(margin=dict(b=0,t=0,l=0,r=0),plot_bgcolor='#ebf3ff',width=750, height=600, 
                       xaxis_showticklabels=True, xaxis4_showticklabels=False, xaxis3_showgrid = False, xaxis4_showgrid = False)
     fig.layout.xaxis.showgrid=False
     return fig
@@ -119,14 +118,11 @@ def get_stock_price_fig(df,v2,v3):
 def GBM(df):
 
     end_date = date.today().isoformat()   
-    #start_date = (date.today()-timedelta(days=30)).isoformat()
     pred_end_date = (date.today()+timedelta(days=30)).isoformat()
     
     df = df[['Date','Adj Close']].reset_index(drop=True)
 
-    returns = (df.loc[1:,'Adj Close'] - \
-        df.shift(1).loc[1:,'Adj Close'])/\
-        df.shift(1).loc[1:,'Adj Close']
+    returns = (df.loc[1:,'Adj Close'] - df.shift(1).loc[1:,'Adj Close'])/df.shift(1).loc[1:,'Adj Close']
 
     # Assigning Parameters
     S = df.loc[df.shape[0]-1,'Adj Close']
@@ -140,7 +136,7 @@ def GBM(df):
     t = np.arange(1,int(N)+1)
     mu = np.mean(returns)
     sd = np.std(returns)
-    pred_no = 4
+    pred_no = 20
     b = {str(k): np.random.normal(0,1,int(N)) for k in range(1, pred_no+1)}
     W = {str(k): b[str(k)].cumsum() for k in range(1, pred_no+1)}
 
@@ -156,16 +152,17 @@ def GBM(df):
 
     fig = go.Figure()
     for i in range(pred_no):
-        fig.add_trace(go.Scatter(mode="lines",x=pd.date_range(start=df['Date'].max(),
+        fig.add_trace(go.Scatter(mode="lines",showlegend = False,
+                        x=pd.date_range(start=df['Date'].max(),
                         end = pred_end_date, freq='D').map(lambda k:
                         k if k.isoweekday() in range(1,6) else np.nan).dropna(),
                         y=Pred[i,:],name='GBM '+str(i),
                         text=["Daily Volatility: "+str(sd)],
                         textposition="bottom center"))
         fig.layout.xaxis.showgrid=False   
-        fig.update_layout(margin=dict(b=0,t=0,l=0,r=0),plot_bgcolor='#F3F6FA')
+        fig.update_layout(margin=dict(b=0,t=0,l=0,r=0),plot_bgcolor='#ebf3ff',width=750, height=300)
 
-    return fig
+    return fig, sd
 
 app = dash.Dash(external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'])
 
@@ -175,6 +172,7 @@ app.layout = html.Div([
        
         html.Div([
             html.H1('Dashboard',style={'text-align':'center'}, className = "start"),
+
             dcc.Dropdown(id="dropdown_tickers", options=[
                 {"label":"HDFC Bank Limited", "value":"HDFCBANK.NS"},
                 {"label":"ICICI Bank Limited", "value":"ICICIBANK.NS"},
@@ -210,8 +208,15 @@ app.layout = html.Div([
                 {"label":"Oberoi Realty Limited", "value":"OBEROIRLTY.NS"},
                 {"label":"Sunteck Realty Limited ", "value":"SUNTECK.NS"},
                 {"label":"Nirlon Limited", "value":"NIRLON.BO"},
-
             ], placeholder='Select Stock', value='HDFCBANK.NS'),
+
+            dcc.Dropdown(id="time_period", options=[
+                {'label': '6 Months', 'value': '6m'},
+                {'label': '1 year', 'value': '1y'},
+                {'label': '3 years', 'value': '3y'},
+                {'label': '5 years', 'value': '5y'},
+            ], placeholder='Time Period', value='1y'),
+
             dcc.Dropdown(id="indicators", options=[
                 {'label': 'RSI', 'value': 'RSI'},
                 {'label': 'SMA', 'value': 'SMA'},
@@ -220,84 +225,102 @@ app.layout = html.Div([
                 {'label': 'Bollinger Bands', 'value': 'BB'}
             ],placeholder='Indicator', value='BB' ),
 
-            dcc.Dropdown(id="Returns", options=[
+            dcc.Dropdown(id="returns", options=[
                 {'label': 'Daily Returns', 'value': 'Daily Returns'},
                 {'label': 'Cumulative Returns', 'value': 'Cumulative Returns'}
             ],placeholder='Returns', value='Daily Returns'),
+
             ]),
 
     ], className="Navigation"),
 
     html.Br(),html.Br(),
+
     html.Div([
         html.Div([
             html.Div([], id="c_graph"), 
             html.Div([], id="graphs"),
             html.Br(),
-            html.H4('Risk Ratios (Over the last <5 years)',style={'text-align':'center'}),
-
-            html.Div([
-                html.H5("Standard Deviation",style={'width': '39%', 'display': 'inline-block'}),
-                html.Div(id="sd_val",style={'width': '20%', 'display': 'inline-block'}),
-            ],style={'width': '60%', 'display': 'inline-block'}),
-            html.Div([
-                html.H5("Beta",style={'width': '50%', 'display': 'inline-block'}),
-                html.Div(id="b_val",style={'width': '9%', 'display': 'inline-block'}),
-            ],style={'width': '39%', 'display': 'inline-block'}),
-            html.Div([
-                html.H5("Sharpe Ratio",style={'width': '39%', 'display': 'inline-block'}),
-                html.Div(id="sr_val",style={'width': '24%', 'display': 'inline-block'}),
-            ],style={'width': '60%', 'display': 'inline-block'}),
-            html.Div([
-                html.H5("Alpha",style={'width': '50%', 'display': 'inline-block'}),
-                html.Div(id="a_val",style={'width': '24%', 'display': 'inline-block'}),
-            ],style={'width': '39%', 'display': 'inline-block'}),
-            html.Br(),
-            html.H4('Prediction of prices over the next month',style={'text-align':'center'}),
+            html.H5('Simulations of prices over the next month',style={'text-align':'center'}),
             html.Div([], id="gbm_graph"), 
-        ], id="main-content")           
+            html.H6("Daily Volatility: ",style={'width': '20%', 'display': 'inline-block','text-align':'center'}),
+            html.Div(id="sd_gm",style={'width': '10%', 'display': 'inline-block','text-align':'center'}),
 
-    ],className="content")
+        ], id="main-content"), 
+    ],className="content"),
+
+    html.Div([
+
+        html.H4('Risk Ratios',style={'text-align':'center'}),
+
+        html.Div([
+            html.H6("Alpha (NIFTY 50)"),
+            html.Div(id="a_val"),
+            ]),
+        html.Div([
+            html.H6("Beta (NIFTY 50)"),
+            html.Div(id="b_val"),
+            ]),
+        html.Div([
+            html.H6("Sharpe Ratio"),
+            html.Div(id="sr_val"),
+            ]),
+        html.Div([
+            html.H6("Sortino Ratio"),
+            html.Div(id="sor_val"),
+            ]),
+        html.Div([
+            html.H6("Standard Deviation"),
+            html.Div(id="sd_val"),
+            ]),
+
+    ], className="Panel2"),  
 
 ],className="container")
-
 
 
 @app.callback(
             [Output("c_graph", "children")],
             [Output("graphs", "children")],
-            [Output("sd_val", "children")],
+            [Output("a_val", "children")],
             [Output("b_val", "children")],
             [Output("sr_val", "children")],
-            [Output("a_val", "children")],
+            [Output("sor_val", "children")],
+            [Output("sd_val", "children")],
+            [Output("sd_gm", "children")],
             [Output("gbm_graph", "children")],
+            [Input("time_period", "value")],
             [Input("dropdown_tickers", "value")],
             [Input("indicators", "value")],
-            [Input("Returns", "value")],
+            [Input("returns", "value")],
 )
 
-def stock_prices(v, v2, v3):
-    if v == None:
+def stock_prices(v, v2, v3, v4):
+    if v2 == None:
         raise PreventUpdate
 
-    df = yf.download(v)
-    # df.to_csv("data.csv")
-    # df = pd.read_csv("data.csv")
-    df.reset_index(inplace=True)
+    df = yf.download(v2)
     df = df.tail(1800)
+    df.reset_index(inplace=True)
 
-    # Standard Deviation
-    SD = round(df['Adj Close'].std(),2)
+    if v=='6m':
+        time_period = 126
+    elif v=='1y':
+        time_period = 252
+    elif v=='3y':
+        time_period = 756
+    elif v=='5y':
+        time_period = 1800
 
-    # Beta & Alpha Ratio
+    # Alpha & Beta Ratio
     beta_r = yf.download("^NSEI")
-    # #beta_r.to_csv("b.csv")
-    # beta_r = pd.read_csv("b.csv")
+    beta_r = beta_r.tail(time_period)
+    df_data = df.tail(time_period)
     beta_r.reset_index(inplace=True)
+    
     beta_r = beta_r[["Date", 'Adj Close']]
     beta_r.columns = ['Date', "NIFTY"]
-    beta_r = beta_r.tail(1800)
-    beta_r = pd.merge(beta_r, df[['Date', 'Adj Close']], how='inner', on='Date')
+    beta_r = pd.merge(beta_r, df_data[['Date', 'Adj Close']], how='inner', on='Date')
     beta_r.columns = ['Date', 'NIFTY', 'Stock']
 
     beta_r[['Stock Returns','NIFTY Returns']] = beta_r[['Stock','NIFTY']]/\
@@ -311,20 +334,27 @@ def stock_prices(v, v2, v3):
     Alpha_Ratio = round(Alpha_Ratio*12,4)
     Beta_Ratio = round(Beta_Ratio,2)
 
-    # Sharpe Ratio
-    df['Normalized Returns'] = df['Adj Close']/df.iloc[0]['Adj Close']
-    df['Daily Normalized Returns'] = df['Normalized Returns'].pct_change(1)
-    Sharpe_Ratio = round((df['Daily Normalized Returns'].mean()/df['Daily Normalized Returns'].std())*(252**0.5),2)
+    # Standard Deviation
+    SD = round(df_data['Adj Close'].std(),2)
 
-    # Plotting over the last year's data
-    df = df.tail(365)
+    # Sharpe & Sortino Ratio
+    df_data['Normalized Returns'] = df_data['Adj Close']/df_data.iloc[0]['Adj Close']
+    df_data['Daily Normalized Returns'] = df_data['Normalized Returns'].pct_change(1)
+    Sharpe_Ratio = round((df_data['Daily Normalized Returns'].mean()/df_data['Daily Normalized Returns'].std())*(252**0.5),2)
+
+    down_returns = df_data.loc[df_data['Daily Normalized Returns'] < 0]
+    down_SD = down_returns['Daily Normalized Returns'].std()
+    Sortino_Ratio = round((df_data['Daily Normalized Returns'].mean()/down_SD)*(252**0.5),2)
+
+    # Plotting over the time period's data
+    df = df.tail(time_period)
     MACD(df)
     RSI(df)
     BB(df)
     df['SMA'] = SMA(df)
     df['EMA'] = EMA(df)
 
-    fig = get_stock_price_fig(df,v2,v3)
+    fig = get_stock_price_fig(df,v3,v4)
     current = df.iloc[-1][2]
     yesterday = df.iloc[-2][2]
 
@@ -342,14 +372,16 @@ def stock_prices(v, v2, v3):
 
     # GBM Model
     df = df.tail(30)
-    fig2 = GBM(df)
+    fig2, sd_gm = GBM(df)
 
     return [dcc.Graph(figure=fig1,config={'displayModeBar': False}),
             dcc.Graph(figure=fig,config={'displayModeBar': False}),
-            SD,
+            Alpha_Ratio,
             Beta_Ratio,
             Sharpe_Ratio,
-            Alpha_Ratio,
+            Sortino_Ratio,
+            SD,
+            round(sd_gm,4),
             dcc.Graph(figure=fig2,config={'displayModeBar': False}),]
 
 
