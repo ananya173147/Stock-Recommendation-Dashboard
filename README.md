@@ -1,1 +1,1 @@
-# Investment-Reccomendation-System
+# Investment-Recommendation-System
