@@ -1,14 +1,27 @@
+import yfinance as yf
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots 
 import pandas as pd
 pd.options.mode.chained_assignment = None 
 import numpy as np
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta
 from arch import arch_model
 from arch.__future__ import reindexing
-import statsmodels.graphics.tsaplots as sgt
-import matplotlib.pyplot as plt
-from functions import *
+import os.path
+
+## Function for downloading/updating benchmark data
+def N50():
+        if os.path.exists('benchmark.csv'):
+                beta_r = pd.read_csv('benchmark.csv')
+                if beta_r['Date'].iloc[-1]!=date.today().isoformat():
+                        beta_r = yf.download('^NSEI',start='2016-01-01')
+                        beta_r.reset_index(inplace=True)
+                        beta_r.to_csv('benchmark.csv')
+        else:
+                beta_r = yf.download('^NSEI',start='2016-01-01')
+                beta_r.reset_index(inplace=True)
+                beta_r.to_csv('benchmark.csv')
+        return beta_r
 
 ## Functions for calculating SMA, EMA, MACD, RSI
 def SMA(data, period = 100, column = 'Adj Close'):
@@ -51,8 +64,8 @@ def BB(data):
 ## Function for plotting Stock Prices, Volume, Indicators & Returns
 def get_stock_price_fig(df,v2,v3):
 
-        fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.039,
-        row_width=[0.1,0.2,0.1, 0.3],subplot_titles=("", "", "", ""))
+        fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.05,
+        row_width=[0.1,0.2,0.1, 0.3],subplot_titles=("", "", v2, v3))
 
         fig.add_trace(go.Candlestick(
                         x=df['Date'],
@@ -83,13 +96,13 @@ def get_stock_price_fig(df,v2,v3):
                 fig.add_trace(go.Scatter(x = df['Date'], y=df['Signal_Line'], mode="lines",name='Signal_Line', 
                 showlegend = False, marker=dict(color='#ff3333')),row = 3, col= 1)
                 fig.layout.xaxis.showgrid=False
-        elif v2=='BB':
+        elif v2=='Bollinger Bands':
                 fig.add_trace(go.Scatter(x = df['Date'], y=df['Adj Close'], mode="lines",
                 line=dict(color='rgb(31, 119, 180)'),name = 'Close',showlegend = False),row = 3, col= 1) 
                 fig.add_trace(go.Scatter(x = df['Date'], y=df['BOLU'],mode="lines", line=dict(width=0.5), 
                 marker=dict(color="#89BCFD"),showlegend=False,name = 'Upper Band'),row = 3, col= 1)
                 fig.add_trace(go.Scatter(x = df['Date'], y=df['BOLD'], mode="lines",line=dict(width=0.5),
-                marker=dict(color="#89BCFD"),showlegend=False,fillcolor='rgba(228, 240, 255, 0.5)',fill='tonexty',name = 'Lower Band'),row = 3, col= 1)
+                marker=dict(color="#89BCFD"),showlegend=False,fillcolor='rgba(56, 224, 56, 0.5)',fill='tonexty',name = 'Lower Band'),row = 3, col= 1)
                 fig.layout.xaxis.showgrid=False        
 
         # Returns
@@ -111,8 +124,46 @@ def get_stock_price_fig(df,v2,v3):
         fig.layout.xaxis.showgrid=False
         return fig
 
+## Function for calculating Alpha & Beta ratio
+def alpha_beta(benchmark, df):
+        benchmark = benchmark[["Date", 'Adj Close']]
+        benchmark['Date']= pd.to_datetime(benchmark['Date'])
+        benchmark.columns = ['Date', "NIFTY"]
+        benchmark = pd.merge(benchmark, df[['Date', 'Adj Close']], how='inner', on='Date')
+        benchmark.columns = ['Date', 'NIFTY', 'Stock']
+        benchmark[['Stock Returns','NIFTY Returns']] = benchmark[['Stock','NIFTY']]/benchmark[['Stock','NIFTY']].shift(1)-1
+        benchmark.dropna(inplace=True)
+        cov = np.cov(benchmark["Stock Returns"],benchmark["NIFTY Returns"])
+        Beta_Ratio = cov[0,1]/cov[1,1]
+        Alpha_Ratio = np.mean(benchmark["Stock Returns"]) - Beta_Ratio*np.mean(benchmark["NIFTY Returns"])
+        return round(Alpha_Ratio*12,4), round(Beta_Ratio,2)
+
+## Function for calculating Sharpe & Sortino Ratio
+def sharpe_sortino(df):
+        df['Normalized Returns'] = df['Adj Close']/df.iloc[0]['Adj Close']
+        df['Daily Normalized Returns'] = df['Normalized Returns'].pct_change(1)
+        Sharpe_Ratio = round((df['Daily Normalized Returns'].mean()/df['Daily Normalized Returns'].std())*(252**0.5),2)
+        down_returns = df.loc[df['Daily Normalized Returns'] < 0]
+        down_SD = down_returns['Daily Normalized Returns'].std()
+        Sortino_Ratio = round((df['Daily Normalized Returns'].mean()/down_SD)*(252**0.5),2)
+        return Sharpe_Ratio, Sortino_Ratio
+
+## Function for calculating change
+def change_graph(current, yesterday):
+        fig = go.Figure(go.Indicator(mode="number+delta",value=current,
+        delta={'reference': yesterday, 'relative': True,'valueformat':'.2%'}))
+
+        fig.update_traces(delta_font={'size':15},number_font = {'size':40})
+        fig.update_layout(height=100, margin=dict(b=10,t=20,l=100),)
+
+        if current >= yesterday:
+                fig.update_traces(delta_increasing_color='green')
+        elif current < yesterday:
+                fig.update_traces(delta_decreasing_color='red')
+        return fig
+
 ## Function for simulation of prices using Geometric Brownian Modeling 
-def GBM(df):
+def gbm(df):
 
         end_date = date.today().isoformat()   
         pred_end_date = (date.today()+timedelta(days=30)).isoformat()
@@ -121,7 +172,7 @@ def GBM(df):
 
         returns = (df.loc[1:,'Adj Close'] - df.shift(1).loc[1:,'Adj Close'])/df.shift(1).loc[1:,'Adj Close']
 
-    # Assigning Parameters
+        # Assigning Parameters
         S = df.loc[df.shape[0]-1,'Adj Close']
         dt = 1
         trading_days = pd.date_range(start=pd.to_datetime(end_date,format='%Y-%m-%d') + 
@@ -133,23 +184,21 @@ def GBM(df):
         t = np.arange(1,int(N)+1)
         mu = np.mean(returns)
         sd = np.std(returns)
-        pred_no = 20
+        pred_no = 10
         b = {str(k): np.random.normal(0,1,int(N)) for k in range(1, pred_no+1)}
         W = {str(k): b[str(k)].cumsum() for k in range(1, pred_no+1)}
 
         # Drift & Diffusion 
-        drift = (mu - 0.5 * sd**2) * t
+        drift = (mu-0.5 * sd**2) * t
         diffusion = {str(k): sd*W[str(k)] for k in range(1, pred_no+1)}
-        #print(drift, diffusion)
 
         # Prediction Values
         Pred = np.array([S*np.exp(drift+diffusion[str(k)]) for k in range(1, pred_no+1)]) 
         Pred = np.hstack((np.array([[S] for k in range(pred_no)]), Pred))
-        #print(Pred)
 
         fig = go.Figure()
         for i in range(pred_no):
-                fig.add_trace(go.Scatter(mode="lines",showlegend = False,
+                fig.add_trace(go.Scatter(mode="lines",showlegend = False, line=dict(color='rgb(31, 119, 180)'),
                                 x = df['Date'], y = df['Adj Close'],name = 'Close'))
                 fig.add_trace(go.Scatter(mode="lines",showlegend = False,
                                 x=pd.date_range(start=df['Date'].max(),
@@ -159,42 +208,44 @@ def GBM(df):
                 fig.layout.xaxis.showgrid=False   
                 fig.update_layout(margin=dict(b=0,t=0,l=0,r=0),plot_bgcolor='#ebf3ff',width=500, height=300)
 
-        return fig, sd
+        return fig
 
 
 ## Function for forecasting volatility using GARCH
-def GARCH(df):
+def garch(df):
+        if len(df)<756:
+                fig = go.Figure()
+                fig.layout.xaxis.showgrid=False   
+                fig.update_layout(margin=dict(b=0,t=0,l=0,r=0),plot_bgcolor='#ebf3ff',width=500, height=200)
+                return fig
         pred_end_date = (date.today()+timedelta(days=30)).isoformat()
         df = df.reset_index(drop = True)
-        df['Date']= pd.to_datetime(df['Date'])
         df = df.set_index('Date')
         df['returns'] = df['Adj Close'].pct_change(1).mul(100)
         df['vola'] = df['returns'].abs()
-        train_df = df.head(630)
-        test_df = df.tail(126)
+        train_df = df.head(726)
+        test_df = df.tail(60)
 
         garch_df = pd.DataFrame(df['returns'].shift(1).loc[df.index])
         garch_df.at[train_df.index, 'returns'] = train_df['returns']
 
-        model = arch_model(garch_df['returns'][1:], p = 1, o = 0, q = 1, vol = "GARCH") 
-        model_results = model.fit(last_obs = np.datetime64(test_df.index[0]), update_freq = 5)
-        #model_results.summary()
+        model = arch_model(garch_df['returns'][1:], p = 1, q = 1, vol = "GARCH",dist = 'normal') 
+        model_results = model.fit(last_obs = np.datetime64(test_df.index[0]), update_freq = 5,disp='off')
 
         predictions_df = test_df.copy()
         predictions_df["Predictions"] = model_results.forecast().residual_variance.loc[test_df.index]
-        # print(predictions_df['Predictions'])
 
         forecasts = model_results.forecast(horizon=30, start=test_df.index[-1], method='simulation')
         forecasts = forecasts.residual_variance.T
 
         fig = go.Figure()
-        fig.add_trace(go.Scatter(mode='lines', showlegend=False,
-                        x = pd.date_range(start=test_df.index[-30],end=test_df.index[-1]),
+        fig.add_trace(go.Scatter(mode='lines', showlegend=False, line=dict(color='rgb(31, 119, 180)'),
+                        x = predictions_df.index,
                         y = predictions_df['vola'],name='Volatility'))
         fig.add_trace(go.Scatter(mode='lines', showlegend=False,
                         x = pd.date_range(start=test_df.index[-1],end=pd.to_datetime(pred_end_date,format='%Y-%m-%d')),
                         y=forecasts[test_df.index[-1]],name='Forecast'))
         fig.layout.xaxis.showgrid=False   
-        fig.update_layout(margin=dict(b=0,t=0,l=0,r=0),plot_bgcolor='#ebf3ff',width=500, height=300)
+        fig.update_layout(margin=dict(b=0,t=0,l=0,r=0),plot_bgcolor='#ebf3ff',width=500, height=200)
 
         return fig
