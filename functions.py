@@ -4,7 +4,7 @@ from plotly.subplots import make_subplots
 import pandas as pd
 pd.options.mode.chained_assignment = None 
 import numpy as np
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from arch import arch_model
 from arch.__future__ import reindexing
 import os.path
@@ -13,7 +13,9 @@ import os.path
 def N50():
         if os.path.exists('benchmark.csv'):
                 beta_r = pd.read_csv('benchmark.csv')
-                if beta_r['Date'].iloc[-1]!=date.today().isoformat():
+                now = datetime.now()
+                today345pm = now.replace(hour=15, minute=45, second=0, microsecond=0)
+                if beta_r['Date'].iloc[-1]!=date.today().isoformat() and now>today345pm:
                         beta_r = yf.download('^NSEI',start='2016-01-01')
                         beta_r.reset_index(inplace=True)
                         beta_r.to_csv('benchmark.csv')
@@ -107,12 +109,12 @@ def get_stock_price_fig(df,v2,v3):
 
         # Returns
         if v3=="Daily Returns":
-                rets = df['Adj Close'] / df['Adj Close'].shift(1) - 1
+                rets = df['Adj Close']/df['Adj Close'].shift(1) - 1
                 fig.add_trace(go.Scatter(x = df['Date'], y=rets, mode="lines", showlegend = False, name = 'Daily Return', line=dict(color='#FF4136')),
                 row = 4, col= 1,)
                 fig.layout.xaxis.showgrid=False
         elif v3=="Cumulative Returns":
-                rets = df['Adj Close'] / df['Adj Close'].shift(1) - 1
+                rets = df['Adj Close']/df['Adj Close'].shift(1) - 1
                 cum_rets = (rets + 1).cumprod()
                 fig.add_trace(go.Scatter(x = df['Date'], y=cum_rets, mode="lines", showlegend = False, name = 'Cumulative Returns', line=dict(color='#FF4136')),
                 row = 4, col=1)
@@ -167,10 +169,8 @@ def gbm(df):
 
         end_date = date.today().isoformat()   
         pred_end_date = (date.today()+timedelta(days=30)).isoformat()
-        
         df = df.reset_index(drop=True)
-
-        returns = (df.loc[1:,'Adj Close'] - df.shift(1).loc[1:,'Adj Close'])/df.shift(1).loc[1:,'Adj Close']
+        returns = (df['Adj Close'] - df.shift(1)['Adj Close'])/df.shift(1)['Adj Close']
 
         # Assigning Parameters
         S = df.loc[df.shape[0]-1,'Adj Close']
@@ -213,18 +213,13 @@ def gbm(df):
 
 ## Function for forecasting volatility using GARCH
 def garch(df):
-        if len(df)<756:
-                fig = go.Figure()
-                fig.layout.xaxis.showgrid=False   
-                fig.update_layout(margin=dict(b=0,t=0,l=0,r=0),plot_bgcolor='#ebf3ff',width=500, height=200)
-                return fig
         pred_end_date = (date.today()+timedelta(days=30)).isoformat()
         df = df.reset_index(drop = True)
         df = df.set_index('Date')
         df['returns'] = df['Adj Close'].pct_change(1).mul(100)
         df['vola'] = df['returns'].abs()
-        train_df = df.head(726)
-        test_df = df.tail(60)
+        train_df = df.head(26)
+        test_df = df.tail(5)
 
         garch_df = pd.DataFrame(df['returns'].shift(1).loc[df.index])
         garch_df.at[train_df.index, 'returns'] = train_df['returns']
@@ -232,16 +227,14 @@ def garch(df):
         model = arch_model(garch_df['returns'][1:], p = 1, q = 1, vol = "GARCH",dist = 'normal') 
         model_results = model.fit(last_obs = np.datetime64(test_df.index[0]), update_freq = 5,disp='off')
 
-        predictions_df = test_df.copy()
-        predictions_df["Predictions"] = model_results.forecast().residual_variance.loc[test_df.index]
-
+        # Prediction Values
         forecasts = model_results.forecast(horizon=30, start=test_df.index[-1], method='simulation')
         forecasts = forecasts.residual_variance.T
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(mode='lines', showlegend=False, line=dict(color='rgb(31, 119, 180)'),
-                        x = predictions_df.index,
-                        y = predictions_df['vola'],name='Volatility'))
+                        x = df.index,
+                        y = df['vola'],name='Volatility'))
         fig.add_trace(go.Scatter(mode='lines', showlegend=False,
                         x = pd.date_range(start=test_df.index[-1],end=pd.to_datetime(pred_end_date,format='%Y-%m-%d')),
                         y=forecasts[test_df.index[-1]],name='Forecast'))

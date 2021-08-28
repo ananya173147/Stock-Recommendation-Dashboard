@@ -6,7 +6,7 @@ import yfinance as yf
 import pandas as pd
 pd.options.mode.chained_assignment = None 
 from dash.exceptions import PreventUpdate
-import numpy as np
+from datetime import datetime
 from functions import *
 
 app = dash.Dash(external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'])
@@ -227,7 +227,9 @@ def stock_prices(v, v2, v3, v4):
 
     if os.path.exists(v2+'.csv'):
         df = pd.read_csv(v2+'.csv')
-        if df['Date'].iloc[-1]!=date.today().isoformat():
+        now = datetime.now()
+        today345pm = now.replace(hour=15, minute=45, second=0, microsecond=0)
+        if df['Date'].iloc[-1]!=date.today().isoformat() and now>today345pm:
             df = yf.download(v2,start='2016-01-01')
             df.reset_index(inplace=True)
             df.to_csv(v2+'.csv')
@@ -280,7 +282,7 @@ def stock_prices(v, v2, v3, v4):
     fig2= gbm(df.tail(30))
 
     # GARCH Model
-    fig3 = garch(df.tail(756))
+    fig3 = garch(df.tail(30))
 
     return [dcc.Graph(figure=fig1,config={'displayModeBar': False}),
             dcc.Graph(figure=fig,config={'displayModeBar': False}),
@@ -315,7 +317,9 @@ def stock_prices2(v, v2, v3, v4):
 
     if os.path.exists(v2+'.csv'):
         df2 = pd.read_csv(v2+'.csv')
-        if df2['Date'].iloc[-1]!=date.today().isoformat():
+        now = datetime.now()
+        today345pm = now.replace(hour=15, minute=45, second=0, microsecond=0)
+        if df2['Date'].iloc[-1]!=date.today().isoformat() and now>today345pm:
             df2 = yf.download(v2,start='2016-01-01')
             df2.reset_index(inplace=True)
             df2.to_csv(v2+'.csv')
@@ -366,10 +370,10 @@ def stock_prices2(v, v2, v3, v4):
     df2 = df2[['Date','Adj Close']]
 
     # GBM Model
-    fig2= gbm(df2.tail(31))
+    fig2= gbm(df2.tail(30))
 
     # GARCH Model
-    fig3 = garch(df2.tail(756))
+    fig3 = garch(df2.tail(30))
 
     return [dcc.Graph(figure=fig1,config={'displayModeBar': False}),
             dcc.Graph(figure=fig,config={'displayModeBar': False}),
