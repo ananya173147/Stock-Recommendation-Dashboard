@@ -33,16 +33,28 @@
    }
 
    .Panel1{
-    margin-left: 10%;
-    width:55%;
+    margin-left: -3%;
+    width:47%;
     padding:25px;
     border-right: 2px solid black;
+    border-bottom: 2px solid black;
+    margin-top: -1%;
     }
 
    .Panel2{
     padding:25px;
-    width:60%;
-    margin-left: 0%;
+    width:49%;
+    margin-left: 48%;
+    margin-top: -163.75%;
+    border-bottom: 2px solid black;
+}
+
+    .Panels{
+    padding:10px;
+    width:113%;
+    margin-left: 13%;
+    margin-right: -43%;
+    margin-bottom: 1.3%;
 }
    
    .graphs{

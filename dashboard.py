@@ -2,11 +2,12 @@ import dash
 import dash_core_components as dcc   
 import dash_html_components as html 
 from dash.dependencies import Input, Output
+from dash_html_components.Div import Div
 import yfinance as yf
 import pandas as pd
 pd.options.mode.chained_assignment = None 
 from dash.exceptions import PreventUpdate
-from datetime import datetime
+from datetime import date, datetime
 from functions import *
 
 app = dash.Dash(external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'])
@@ -46,7 +47,7 @@ app.layout = html.Div([
     ], className="Navigation"),
 
     html.Br(),html.Br(),
-
+    html.Div([
     html.Div([
         html.Div([
             dcc.Dropdown(id="dropdown_tickers", options=[
@@ -199,7 +200,26 @@ app.layout = html.Div([
                 html.Div(id="sd_val2"),
                 ]),
         ], id="main-content2"),
-    ], className="Panel2"),  
+    ], className="Panel2"),
+    html.Br(),
+    html.Div([
+        html.H3('Interpretation'),
+        html.H5('Technical indicators'),
+        html.Li('Bollinger Bands is a measure of volatility. High volatility is signified by wide bands while low volatility is signified by narrow bands. Generally, high volatility is followed by low volatility'),
+        html.Li('RSI or Relative Strength Index, is a measure to evaluate overbought and oversold conditions. Uptrend if over sold reading is higher than 30%, downtrend if overbought reading is lower than 70%'),
+        html.Li('SMA or Simple Moving Average using 50 day (fast) and 200 day (slow) lines - short term going above long term is bullish trend. Short term going below long term is bearish'),
+        html.Li('EMA or Exponential Moving Average gives higher significance to recent price data'),
+        html.Li('MACD or Moving Average Convergence Divergence signifies no trend reversal unless there are crossovers. The market is bullish when blue line is above red line, bearish when blue line is below red line. It helps in discovering opportunities that give investors a higher probability of properly identifying when an asset is oversold or overbought.'),
+        
+        html.H5('Risk ratios'),
+        html.Li('Alpha: Performance as compared to benchmark of market'),
+        html.Li('Beta: A multiplicative factor for stock to go up and down as compared to the market trend'),
+        html.Li('Sharp ratio: Returns as compared to risk - the higher the better'),
+        html.Li('Sortino ratio: Returns as compared to only downside risk'),
+        html.Li('Standard deviation: The volatility of the price as compared to its mean'),
+    ])
+
+    ],className="Panels"),
 
 ],className="container")
 
@@ -229,7 +249,7 @@ def stock_prices(v, v2, v3, v4):
         df = pd.read_csv(v2+'.csv')
         now = datetime.now()
         today345pm = now.replace(hour=15, minute=45, second=0, microsecond=0)
-        if df['Date'].iloc[-1]!=date.today().isoformat() and now>today345pm:
+        if df['Date'].iloc[-1]!=date.today().isoformat() and date.today().isoweekday() in range(1,6) and now>today345pm:
             df = yf.download(v2,start='2016-01-01')
             df.reset_index(inplace=True)
             df.to_csv(v2+'.csv')
@@ -263,13 +283,14 @@ def stock_prices(v, v2, v3, v4):
     Sharpe_Ratio, Sortino_Ratio = sharpe_sortino(df_data)
 
     # Plotting over the time period's data
-    MACD(df_data)
-    RSI(df_data)
-    BB(df_data)
-    df_data['SMA'] = SMA(df_data)
-    df_data['EMA'] = EMA(df_data)
+    MACD(df)
+    RSI(df)
+    BB(df)
+    df['SMA_50'] = SMA(df, 50)
+    df['SMA_200'] = SMA(df, 200)
+    df['EMA'] = EMA(df)
 
-    fig = get_stock_price_fig(df_data,v3,v4)
+    fig = get_stock_price_fig(df.tail(time_period),v3,v4)
     current = df_data.iloc[-1][2]
     yesterday = df_data.iloc[-2][2]
 
@@ -319,7 +340,7 @@ def stock_prices2(v, v2, v3, v4):
         df2 = pd.read_csv(v2+'.csv')
         now = datetime.now()
         today345pm = now.replace(hour=15, minute=45, second=0, microsecond=0)
-        if df2['Date'].iloc[-1]!=date.today().isoformat() and now>today345pm:
+        if df2['Date'].iloc[-1]!=date.today().isoformat() and date.today().isoweekday() in range(1,6) and now>today345pm:
             df2 = yf.download(v2,start='2016-01-01')
             df2.reset_index(inplace=True)
             df2.to_csv(v2+'.csv')
@@ -353,16 +374,16 @@ def stock_prices2(v, v2, v3, v4):
     Sharpe_Ratio, Sortino_Ratio = sharpe_sortino(df_data)
 
     # Plotting over the time period's data
-    df_data = df_data.tail(time_period)
-    MACD(df_data)
-    RSI(df_data)
-    BB(df_data)
-    df_data['SMA'] = SMA(df_data)
-    df_data['EMA'] = EMA(df_data)
+    MACD(df2)
+    RSI(df2)
+    BB(df2)
+    df2['SMA_50'] = SMA(df2, 50)
+    df2['SMA_200'] = SMA(df2, 200)
+    df2['EMA'] = EMA(df2)
 
-    fig = get_stock_price_fig(df_data,v3,v4)
-    current = df_data.iloc[-1][2]
-    yesterday = df_data.iloc[-2][2]
+    fig = get_stock_price_fig(df2.tail(time_period),v3,v4)
+    current = df2.iloc[-1][2]
+    yesterday = df2.iloc[-2][2]
 
     # Change graph
     fig1 = change_graph(current,yesterday)

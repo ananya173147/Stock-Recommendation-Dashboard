@@ -15,7 +15,7 @@ def N50():
                 beta_r = pd.read_csv('benchmark.csv')
                 now = datetime.now()
                 today345pm = now.replace(hour=15, minute=45, second=0, microsecond=0)
-                if beta_r['Date'].iloc[-1]!=date.today().isoformat() and now>today345pm:
+                if beta_r['Date'].iloc[-1]!=date.today().isoformat() and date.today().isoweekday() in range(1,6) and now>today345pm:
                         beta_r = yf.download('^NSEI',start='2016-01-01')
                         beta_r.reset_index(inplace=True)
                         beta_r.to_csv('benchmark.csv')
@@ -85,8 +85,10 @@ def get_stock_price_fig(df,v2,v3):
                 marker=dict(color='rgb(31, 119, 180)'), showlegend = False),row = 3, col= 1)
                 fig.layout.xaxis.showgrid=False
         elif v2=='SMA':
-                fig.add_trace(go.Scatter(x = df['Date'], y=df['SMA'], mode="lines", name = 'SMA', 
+                fig.add_trace(go.Scatter(x = df['Date'], y=df['SMA_50'], mode="lines", name = 'SMA_50', 
                 showlegend = False, marker=dict(color='rgb(31, 119, 180)')),row = 3, col= 1)
+                fig.add_trace(go.Scatter(x = df['Date'], y=df['SMA_200'], mode="lines", name = 'SMA_200', 
+                showlegend = False, marker=dict(color='#ff3333')),row = 3, col= 1)
                 fig.layout.xaxis.showgrid=False
         elif v2=='EMA':
                 fig.add_trace(go.Scatter(x = df['Date'], y=df['EMA'], mode="lines", name = 'EMA', 
