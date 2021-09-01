@@ -185,8 +185,7 @@ def gbm(df):
                         pd.Timedelta('1 days'),
                         end=pd.to_datetime(pred_end_date,format='%Y-%m-%d')).to_series().map(lambda k:
                         1 if k.isoweekday() in range(1,6) else 0).sum()
-        T = trading_days
-        N = T/dt
+        N = trading_days/dt
         t = np.arange(1,int(N)+1)
         mu = np.mean(returns)
         sd = np.std(returns)

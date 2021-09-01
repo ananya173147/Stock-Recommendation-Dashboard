@@ -33,8 +33,8 @@
    }
 
    .Panel1{
-    margin-left: -3%;
-    width:47%;
+    margin-left: -4%;
+    width:48%;
     padding:25px;
     border-right: 2px solid black;
     border-bottom: 2px solid black;
@@ -45,7 +45,7 @@
     padding:25px;
     width:49%;
     margin-left: 48%;
-    margin-top: -163.75%;
+    margin-top: -169.25%;
     border-bottom: 2px solid black;
 }
 
@@ -54,7 +54,7 @@
     width:113%;
     margin-left: 13%;
     margin-right: -43%;
-    margin-bottom: 1.3%;
+    margin-bottom: 10%;
 }
    
    .graphs{
