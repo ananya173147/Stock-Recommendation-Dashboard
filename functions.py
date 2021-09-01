@@ -67,7 +67,7 @@ def BB(data):
 def get_stock_price_fig(df,v2,v3):
 
         fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.05,
-        row_width=[0.1,0.2,0.1, 0.3],subplot_titles=("", "", v2, v3))
+        row_width=[0.1,0.2,0.1, 0.3],subplot_titles=("", "", v2, v3 + ' %'))
 
         fig.add_trace(go.Candlestick(
                         x=df['Date'],
@@ -130,17 +130,21 @@ def get_stock_price_fig(df,v2,v3):
 
 ## Function for calculating Alpha & Beta ratio
 def alpha_beta(benchmark, df):
+        risk_free_rate = 0.04
         benchmark = benchmark[["Date", 'Adj Close']]
         benchmark['Date']= pd.to_datetime(benchmark['Date'])
         benchmark.columns = ['Date', "NIFTY"]
         benchmark = pd.merge(benchmark, df[['Date', 'Adj Close']], how='inner', on='Date')
         benchmark.columns = ['Date', 'NIFTY', 'Stock']
-        benchmark[['Stock Returns','NIFTY Returns']] = benchmark[['Stock','NIFTY']]/benchmark[['Stock','NIFTY']].shift(1)-1
+        benchmark['NIFTY Returns'] = benchmark['NIFTY'].pct_change(1).mul(100)
+        benchmark['Stock Returns'] = benchmark['Stock'].pct_change(1).mul(100)
+        benchmark['NIFTY Returns'] -= risk_free_rate
+        benchmark['Stock Returns'] -= risk_free_rate
         benchmark.dropna(inplace=True)
         cov = np.cov(benchmark["Stock Returns"],benchmark["NIFTY Returns"])
         Beta_Ratio = cov[0,1]/cov[1,1]
         Alpha_Ratio = np.mean(benchmark["Stock Returns"]) - Beta_Ratio*np.mean(benchmark["NIFTY Returns"])
-        return round(Alpha_Ratio*12,4), round(Beta_Ratio,2)
+        return round(Alpha_Ratio*12,3), round(Beta_Ratio,2)
 
 ## Function for calculating Sharpe & Sortino Ratio
 def sharpe_sortino(df):
@@ -206,14 +210,14 @@ def gbm(df):
                                 x=pd.date_range(start=df['Date'].max(),
                                 end = pred_end_date, freq='D').map(lambda k:
                                 k if k.isoweekday() in range(1,6) else np.nan).dropna(),
-                                y=Pred[i,:],name='GBM '+str(i)))
+                                y=Pred[i,:],name=str(i)))
                 fig.layout.xaxis.showgrid=False   
                 fig.update_layout(margin=dict(b=0,t=0,l=0,r=0),plot_bgcolor='#ebf3ff',width=500, height=300)
 
         return fig
 
 
-## Function for forecasting volatility using GARCH
+## Function for forecasting volatility using GARCH(1,1)
 def garch(df):
         pred_end_date = (date.today()+timedelta(days=30)).isoformat()
         df = df.reset_index(drop = True)
@@ -231,7 +235,7 @@ def garch(df):
 
         # Prediction Values
         forecasts = model_results.forecast(horizon=30, start=test_df.index[-1], method='simulation')
-        forecasts = forecasts.residual_variance.T
+        forecasts = forecasts.variance.T**0.5
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(mode='lines', showlegend=False, line=dict(color='rgb(31, 119, 180)'),
